@@ -71,12 +71,15 @@ export class AuthService {
   private configurePassport() {
     logAuth('Configuring Passport OAuth2 strategy');
 
+    const callbackUrl = process.env.EVE_CALLBACK_URL || 'http://localhost:3001/auth/callback';
+    logAuth('Using callback URL:', callbackUrl);
+
     passport.use(new OAuth2Strategy({
       authorizationURL: 'https://login.eveonline.com/v2/oauth/authorize',
       tokenURL: 'https://login.eveonline.com/v2/oauth/token',
       clientID: this.clientId,
       clientSecret: this.clientSecret,
-      callbackURL: this.callbackUrl,
+      callbackURL: callbackUrl,
       scope: [
         'publicData',
         'esi-calendar.read_calendar_events.v1',

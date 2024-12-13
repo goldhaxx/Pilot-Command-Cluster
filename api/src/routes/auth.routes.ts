@@ -12,9 +12,11 @@ router.use(apiLogger);
 
 // Initialize EVE Online SSO authentication
 router.get('/login', (req: Request, res: Response, next) => {
+  const callbackUrl = process.env.EVE_CALLBACK_URL || 'http://localhost:3001/auth/callback';
   return passport.authenticate('oauth2', {
     successRedirect: '/auth/callback',
-    failureRedirect: '/login'
+    failureRedirect: '/login',
+    callbackURL: callbackUrl
   })(req, res, next);
 });
 
