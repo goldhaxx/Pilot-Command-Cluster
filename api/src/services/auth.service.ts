@@ -72,7 +72,10 @@ export class AuthService {
     logAuth('Configuring Passport OAuth2 strategy');
 
     const callbackUrl = process.env.EVE_CALLBACK_URL || 'http://localhost:3001/auth/callback';
+    const frontendUrl = process.env.FRONTEND_URL || 'https://pilot-command-cluster-web.vercel.app';
+    
     logAuth('Using callback URL:', callbackUrl);
+    logAuth('Using frontend URL:', frontendUrl);
 
     passport.use(new OAuth2Strategy({
       authorizationURL: 'https://login.eveonline.com/v2/oauth/authorize',

@@ -13,9 +13,11 @@ router.use(apiLogger);
 // Initialize EVE Online SSO authentication
 router.get('/login', (req: Request, res: Response, next) => {
   const callbackUrl = process.env.EVE_CALLBACK_URL || 'http://localhost:3001/auth/callback';
+  const frontendUrl = process.env.FRONTEND_URL || 'https://pilot-command-cluster-web.vercel.app';
+  
   return passport.authenticate('oauth2', {
     successRedirect: '/auth/callback',
-    failureRedirect: '/login',
+    failureRedirect: `${frontendUrl}/login`,
     callbackURL: callbackUrl
   })(req, res, next);
 });
@@ -23,7 +25,7 @@ router.get('/login', (req: Request, res: Response, next) => {
 // Callback URL for EVE Online SSO
 router.get('/callback',
   passport.authenticate('oauth2', { 
-    failureRedirect: '/login',
+    failureRedirect: `${process.env.FRONTEND_URL || 'https://pilot-command-cluster-web.vercel.app'}/login`,
     failureMessage: true
   }),
   (req: Request, res: Response) => {
@@ -38,10 +40,11 @@ router.get('/callback',
       const refreshToken = user.refreshToken;
       const expiresIn = user.expiresIn || 1200;
       const platform = req.query.platform || 'web';
+      const frontendUrl = process.env.FRONTEND_URL || 'https://pilot-command-cluster-web.vercel.app';
       
       // For web application
       if (platform === 'web') {
-        const redirectUrl = new URL('/auth-callback', process.env.FRONTEND_URL || 'http://localhost:3000');
+        const redirectUrl = new URL('/auth-callback', frontendUrl);
         redirectUrl.searchParams.append('token', token);
         redirectUrl.searchParams.append('eveAccessToken', eveAccessToken);
         redirectUrl.searchParams.append('refreshToken', refreshToken);
@@ -82,10 +85,8 @@ router.get('/callback',
         error: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined
       });
-      return res.status(500).json({ 
-        error: 'Authentication failed',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      });
+      const frontendUrl = process.env.FRONTEND_URL || 'https://pilot-command-cluster-web.vercel.app';
+      return res.redirect(`${frontendUrl}/login?error=Authentication failed`);
     }
   }
 );
