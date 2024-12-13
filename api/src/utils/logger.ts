@@ -1,12 +1,4 @@
-import fs from 'fs';
-import path from 'path';
 import winston from 'winston';
-
-// Ensure logs directory exists
-const logDir = path.join(__dirname, '../../logs');
-if (!fs.existsSync(logDir)) {
-  fs.mkdirSync(logDir, { recursive: true });
-}
 
 // Custom format to ensure JSON-friendly output
 const jsonFormat = winston.format.printf(({ timestamp, level, message, ...meta }) => {
@@ -32,28 +24,14 @@ export const logger = winston.createLogger({
     jsonFormat
   ),
   transports: [
-    // Write all logs to api-calls.log
-    new winston.transports.File({
-      filename: path.join(logDir, 'api-calls.log'),
-      level: 'info'
-    }),
-    // Write error logs to error.log
-    new winston.transports.File({
-      filename: path.join(logDir, 'error.log'),
-      level: 'error'
+    new winston.transports.Console({
+      format: winston.format.combine(
+        winston.format.colorize(),
+        winston.format.simple()
+      )
     })
   ]
 });
-
-// Add console logging in development with pretty printing
-if (process.env.NODE_ENV !== 'production') {
-  logger.add(new winston.transports.Console({
-    format: winston.format.combine(
-      winston.format.colorize(),
-      winston.format.simple()
-    )
-  }));
-}
 
 export const logApiCall = (type: 'incoming' | 'outgoing', data: any) => {
   // Ensure headers are JSON-friendly
