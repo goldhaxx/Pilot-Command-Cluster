@@ -13,7 +13,6 @@ import ProfilePage from './pages/ProfilePage';
 import Dashboard from './pages/Dashboard';
 import PlanetaryIndustry from './pages/PlanetaryIndustry';
 import { AuthService } from './services/auth.service';
-import { TooltipProvider } from './components/ui/tooltip';
 
 // Protected Route wrapper
 const ProtectedRoute: React.FC<{ element: React.ReactElement }> = ({ element }) => {
