@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "projects": [
+    {
+      "name": "pilot-command-cluster-web",
+      "path": "web"
+    },
+    {
+      "name": "pilot-command-cluster-api",
+      "path": "api"
+    }
+  ]
+} 

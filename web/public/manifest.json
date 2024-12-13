@@ -1,0 +1,16 @@
+{
+  "short_name": "PCC",
+  "name": "Pilot Command Cluster",
+  "description": "A centralized suite of tools for Eve Online players",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "64x64",
+      "type": "image/x-icon"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#000000",
+  "background_color": "#ffffff"
+} 

@@ -1,0 +1,74 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+ 
+@layer base {
+  :root {
+    --background: 220 35% 3%;
+    --foreground: 210 40% 98%;
+ 
+    --card: 220 25% 7%;
+    --card-foreground: 210 40% 98%;
+ 
+    --popover: 220 25% 7%;
+    --popover-foreground: 210 40% 98%;
+ 
+    --primary: 195 100% 45%;
+    --primary-foreground: 0 0% 100%;
+ 
+    --secondary: 215 25% 15%;
+    --secondary-foreground: 210 40% 98%;
+ 
+    --muted: 215 25% 20%;
+    --muted-foreground: 215 20% 65%;
+ 
+    --accent: 195 100% 45%;
+    --accent-foreground: 0 0% 100%;
+ 
+    --destructive: 0 100% 45%;
+    --destructive-foreground: 210 40% 98%;
+ 
+    --border: 195 35% 20%;
+    --input: 215 25% 15%;
+    --ring: 195 100% 45%;
+ 
+    --radius: 0.25rem;
+  }
+}
+ 
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer utilities {
+  .eve-window {
+    @apply bg-card/95 backdrop-blur-sm border border-border/20 shadow-lg;
+  }
+  
+  .eve-header {
+    @apply bg-secondary/80 border-b border-border/20 px-4 py-2;
+  }
+  
+  .eve-text-primary {
+    @apply text-primary font-medium tracking-wide;
+  }
+  
+  .eve-text-secondary {
+    @apply text-muted-foreground text-sm;
+  }
+  
+  .eve-grid {
+    @apply grid gap-2 p-2;
+  }
+  
+  .eve-hover {
+    @apply hover:bg-accent/10 hover:border-accent/30 transition-colors;
+  }
+}
+ 
