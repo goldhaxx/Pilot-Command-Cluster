@@ -12,13 +12,11 @@ router.use(apiLogger);
 
 // Initialize EVE Online SSO authentication
 router.get('/login', (req: Request, res: Response, next) => {
-  const callbackUrl = process.env.EVE_CALLBACK_URL || 'http://localhost:3001/auth/callback';
   const frontendUrl = process.env.FRONTEND_URL || 'https://pilot-command-cluster-web.vercel.app';
   
   return passport.authenticate('oauth2', {
-    successRedirect: '/auth/callback',
     failureRedirect: `${frontendUrl}/login`,
-    callbackURL: callbackUrl
+    state: true
   })(req, res, next);
 });
 
