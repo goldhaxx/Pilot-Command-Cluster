@@ -111,7 +111,6 @@ export class AuthService {
         'esi-clones.read_implants.v1',
         'esi-characters.read_fatigue.v1',
         'esi-killmails.read_corporation_killmails.v1',
-        'esi-corporations.track_members.v1',
         'esi-wallet.read_corporation_wallets.v1',
         'esi-characters.read_notifications.v1',
         'esi-corporations.read_divisions.v1',
