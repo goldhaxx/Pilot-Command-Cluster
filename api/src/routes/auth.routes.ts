@@ -21,73 +21,41 @@ router.get('/login', (req: Request, res: Response, next) => {
 });
 
 // Callback URL for EVE Online SSO
-router.get('/callback',
+router.get('/callback', (req: Request, res: Response, next) => {
+  const frontendUrl = process.env.FRONTEND_URL || 'https://pilot-command-cluster-web.vercel.app';
+  
   passport.authenticate('oauth2', { 
-    failureRedirect: `${process.env.FRONTEND_URL || 'https://pilot-command-cluster-web.vercel.app'}/login`,
-    failureMessage: true
-  }),
-  (req: Request, res: Response) => {
-    try {
-      if (!req.user) {
-        throw new Error('Authentication failed - No user data');
-      }
-
-      const user = req.user as Express.User;
-      const token = authService.generateToken(user);
-      const eveAccessToken = user.accessToken;
-      const refreshToken = user.refreshToken;
-      const expiresIn = user.expiresIn || 1200;
-      const platform = req.query.platform || 'web';
-      const frontendUrl = process.env.FRONTEND_URL || 'https://pilot-command-cluster-web.vercel.app';
-      
-      // For web application
-      if (platform === 'web') {
-        const redirectUrl = new URL('/auth-callback', frontendUrl);
-        redirectUrl.searchParams.append('token', token);
-        redirectUrl.searchParams.append('eveAccessToken', eveAccessToken);
-        redirectUrl.searchParams.append('refreshToken', refreshToken);
-        redirectUrl.searchParams.append('expiresIn', expiresIn.toString());
-        
-        logApiCall('outgoing', {
-          type: 'auth_callback_redirect',
-          status: 'success',
-          platform: 'web',
-          hasToken: !!token,
-          hasEveAccessToken: !!eveAccessToken,
-          hasRefreshToken: !!refreshToken
-        });
-
-        return res.redirect(redirectUrl.toString());
-      } 
-      // For mobile/desktop applications using custom URL scheme
-      else {
-        const redirectUrl = new URL('callback', 'eveauth-app://');
-        redirectUrl.searchParams.append('token', token);
-        redirectUrl.searchParams.append('eveAccessToken', eveAccessToken);
-        redirectUrl.searchParams.append('refreshToken', refreshToken);
-        redirectUrl.searchParams.append('expiresIn', expiresIn.toString());
-
-        logApiCall('outgoing', {
-          type: 'auth_callback_redirect',
-          status: 'success',
-          platform: 'mobile',
-          hasToken: !!token,
-          hasEveAccessToken: !!eveAccessToken,
-          hasRefreshToken: !!refreshToken
-        });
-
-        return res.redirect(redirectUrl.toString());
-      }
-    } catch (error) {
-      logError('Authentication callback failed', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined
-      });
-      const frontendUrl = process.env.FRONTEND_URL || 'https://pilot-command-cluster-web.vercel.app';
+    failureRedirect: `${frontendUrl}/login`,
+    session: false
+  }, (err, user) => {
+    if (err || !user) {
+      logError('Authentication failed', err);
       return res.redirect(`${frontendUrl}/login?error=Authentication failed`);
     }
-  }
-);
+
+    try {
+      const token = authService.generateToken(user);
+      const redirectUrl = new URL('/auth-callback', frontendUrl);
+      redirectUrl.searchParams.append('token', token);
+      redirectUrl.searchParams.append('eveAccessToken', user.accessToken);
+      redirectUrl.searchParams.append('refreshToken', user.refreshToken);
+      redirectUrl.searchParams.append('expiresIn', (user.expiresIn || 1200).toString());
+
+      logApiCall('outgoing', {
+        type: 'auth_callback_redirect',
+        status: 'success',
+        hasToken: !!token,
+        hasEveAccessToken: !!user.accessToken,
+        hasRefreshToken: !!user.refreshToken
+      });
+
+      return res.redirect(redirectUrl.toString());
+    } catch (error) {
+      logError('Failed to process authentication', error);
+      return res.redirect(`${frontendUrl}/login?error=Failed to process authentication`);
+    }
+  })(req, res, next);
+});
 
 // Verify JWT token
 router.get('/verify', (req: Request, res: Response) => {
