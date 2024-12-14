@@ -156,7 +156,7 @@ export class AuthService {
       try {
         // Updated verification endpoint
         logVerify('Making verification request to EVE SSO');
-        const response = await axios.get('https://esi.evetech.net/verify/', {
+        const response = await axios.get('https://login.eveonline.com/v2/oauth/verify', {
           headers: { 
             'Authorization': `Bearer ${accessToken}`,
             'User-Agent': 'Pilot Command Cluster - Contact: your@email.com'
