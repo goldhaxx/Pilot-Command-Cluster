@@ -16,9 +16,16 @@ const Navigation: React.FC = () => {
 
   const handleCopyToken = async () => {
     try {
-      const token = await AuthService.getEveAccessToken();
-      if (token) {
-        await navigator.clipboard.writeText(token);
+      const token = AuthService.getToken();
+      if (!token) {
+        sessionStorage.setItem('returnPath', location.pathname);
+        navigate('/login');
+        return;
+      }
+
+      const eveToken = await AuthService.getEveAccessToken();
+      if (eveToken) {
+        await navigator.clipboard.writeText(eveToken);
         toast.success("Token Copied", {
           description: "The token has been copied to your clipboard.",
           duration: 2000,

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { AuthService } from '../services/auth.service';
 import { ESIService } from '../services/esi.service';
 import Navigation from '../components/Navigation';
@@ -278,6 +279,8 @@ const InstallationComponent: React.FC<InstallationProps> = ({ installation }) =>
 };
 
 const PlanetaryIndustry: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [planets, setPlanets] = useState<Planet[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -309,88 +312,96 @@ const PlanetaryIndustry: React.FC = () => {
       try {
         const token = AuthService.getToken();
         if (!token) {
-          setError('No authentication token found');
+          sessionStorage.setItem('returnPath', location.pathname);
+          navigate('/login');
           setLoading(false);
           return;
         }
 
-        const userData = await AuthService.verifyToken(token);
-        const planetList = await ESIService.getInstance().getCharacterPlanets(userData.characterId);
-        
-        const planetDetailsPromises = planetList.map(planet => 
-          ESIService.getInstance().getPlanetDetails(userData.characterId, planet.planet_id)
-        );
-        
-        const planetDetails = await Promise.all(planetDetailsPromises);
-        
-        const transformedPlanets = planetList.map((planet, index) => {
-          const details = planetDetails[index];
-          const installations = details.pins
-            .map(pin => {
-              console.log('Pin data:', {
-                pin_id: pin.pin_id,
-                type_id: pin.type_id,
-                type_name: pin.type_name,
-                mapped_type: EVE_TYPE_ID_TO_INSTALLATION[pin.type_id],
-                has_extractor: !!pin.extractor_details,
-                last_cycle: pin.last_cycle_start,
-                expiry: pin.expiry_time
+        try {
+          const userData = await AuthService.verifyToken(token);
+          const planetList = await ESIService.getInstance().getCharacterPlanets(userData.characterId);
+          
+          const planetDetailsPromises = planetList.map(planet => 
+            ESIService.getInstance().getPlanetDetails(userData.characterId, planet.planet_id)
+          );
+          
+          const planetDetails = await Promise.all(planetDetailsPromises);
+          
+          const transformedPlanets = planetList.map((planet, index) => {
+            const details = planetDetails[index];
+            const installations = details.pins
+              .map(pin => {
+                console.log('Pin data:', {
+                  pin_id: pin.pin_id,
+                  type_id: pin.type_id,
+                  type_name: pin.type_name,
+                  mapped_type: EVE_TYPE_ID_TO_INSTALLATION[pin.type_id],
+                  has_extractor: !!pin.extractor_details,
+                  last_cycle: pin.last_cycle_start,
+                  expiry: pin.expiry_time
+                });
+                
+                // Get the installation type from the type ID mapping
+                const installationType = EVE_TYPE_ID_TO_INSTALLATION[pin.type_id];
+                console.log('Type mapping:', {
+                  type_id: pin.type_id,
+                  mapped_type: installationType,
+                  fallback: InstallationType.PROCESSOR
+                });
+                
+                // Include all pins, even if we don't recognize the type
+                const installation = {
+                  id: pin.pin_id.toString(),
+                  type: installationType || InstallationType.PROCESSOR, // Default to PROCESSOR if type not recognized
+                  type_id: pin.type_id,
+                  type_name: pin.type_name,
+                  status: pin.last_cycle_start ? 'active' : 'inactive',
+                  contents: pin.contents || [],
+                  last_cycle_start: pin.last_cycle_start,
+                  expiry_time: pin.expiry_time,
+                  extractor_details: pin.extractor_details
+                } as Installation;
+                
+                console.log('Created installation:', installation);
+                return installation;
               });
-              
-              // Get the installation type from the type ID mapping
-              const installationType = EVE_TYPE_ID_TO_INSTALLATION[pin.type_id];
-              console.log('Type mapping:', {
-                type_id: pin.type_id,
-                mapped_type: installationType,
-                fallback: InstallationType.PROCESSOR
-              });
-              
-              // Include all pins, even if we don't recognize the type
-              const installation = {
-                id: pin.pin_id.toString(),
-                type: installationType || InstallationType.PROCESSOR, // Default to PROCESSOR if type not recognized
-                type_id: pin.type_id,
-                type_name: pin.type_name,
-                status: pin.last_cycle_start ? 'active' : 'inactive',
-                contents: pin.contents || [],
-                last_cycle_start: pin.last_cycle_start,
-                expiry_time: pin.expiry_time,
-                extractor_details: pin.extractor_details
-              } as Installation;
-              
-              console.log('Created installation:', installation);
-              return installation;
-            });
 
-          console.log('Final installations for planet:', installations);
+            console.log('Final installations for planet:', installations);
 
-          return {
-            id: planet.planet_id.toString(),
-            name: `Planet ${planet.planet_id} - ${planet.planet_type}`,
-            type: planet.planet_type,
-            installations,
-            isColonized: true,
-            upgrade_level: planet.upgrade_level,
-            num_pins: planet.num_pins,
-            last_update: planet.last_update
-          };
-        });
-
-        // Add empty planet slots to reach 5 total
-        while (transformedPlanets.length < 5) {
-          transformedPlanets.push({
-            id: `uncolonized-${transformedPlanets.length}`,
-            name: 'Unestablished Colony',
-            type: 'unknown',
-            installations: [],
-            isColonized: false,
-            upgrade_level: 0,
-            num_pins: 0,
-            last_update: ''
+            return {
+              id: planet.planet_id.toString(),
+              name: `Planet ${planet.planet_id} - ${planet.planet_type}`,
+              type: planet.planet_type,
+              installations,
+              isColonized: true,
+              upgrade_level: planet.upgrade_level,
+              num_pins: planet.num_pins,
+              last_update: planet.last_update
+            };
           });
-        }
 
-        setPlanets(transformedPlanets);
+          // Add empty planet slots to reach 5 total
+          while (transformedPlanets.length < 5) {
+            transformedPlanets.push({
+              id: `uncolonized-${transformedPlanets.length}`,
+              name: 'Unestablished Colony',
+              type: 'unknown',
+              installations: [],
+              isColonized: false,
+              upgrade_level: 0,
+              num_pins: 0,
+              last_update: ''
+            });
+          }
+
+          setPlanets(transformedPlanets);
+        } catch (err) {
+          console.error('Error loading planetary data:', err);
+          setError('Failed to load planetary information');
+        } finally {
+          setLoading(false);
+        }
       } catch (err) {
         console.error('Error loading planetary data:', err);
         setError('Failed to load planetary information');
