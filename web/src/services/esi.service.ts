@@ -163,20 +163,31 @@ export class ESIService {
       const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
         }
       });
 
       if (!response.ok) {
         if (response.status === 403) {
-          const errorData = await response.json().catch(() => null);
-          if (errorData?.error === 'token is expired') {
-            logError('Token expired during request:', url);
-            // The getEveAccessToken call above should have refreshed an expired token
-            // If we still got a 403, the refresh token itself might be invalid
-            AuthService.clearToken(); // Clear invalid tokens
-            throw new Error('Authentication expired - please log in again');
+          // Try to get a fresh token
+          AuthService.clearToken(); // Clear the current token
+          const newToken = await AuthService.getEveAccessToken(); // This will trigger a refresh
+          if (newToken) {
+            // Retry the request with the new token
+            const retryResponse = await fetch(url, {
+              headers: {
+                'Authorization': `Bearer ${newToken}`,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+              }
+            });
+            
+            if (retryResponse.ok) {
+              return await retryResponse.json();
+            }
           }
+          throw new Error('Authentication expired - please log in again');
         }
         throw new Error(`Request failed: ${response.status}`);
       }
