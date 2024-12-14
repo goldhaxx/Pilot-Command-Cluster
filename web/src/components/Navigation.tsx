@@ -18,26 +18,52 @@ const Navigation: React.FC = () => {
     try {
       const token = AuthService.getToken();
       if (!token) {
+        toast.error("Authentication Required", {
+          description: "Please log in to continue.",
+          duration: 3000,
+        });
         sessionStorage.setItem('returnPath', location.pathname);
         navigate('/login');
         return;
       }
 
-      const eveToken = await AuthService.getEveAccessToken();
-      if (eveToken) {
-        await navigator.clipboard.writeText(eveToken);
-        toast.success("Token Copied", {
-          description: "The token has been copied to your clipboard.",
-          duration: 2000,
+      try {
+        // First verify the auth token
+        await AuthService.verifyToken(token);
+        
+        // Then get EVE access token
+        const eveToken = await AuthService.getEveAccessToken();
+        if (eveToken) {
+          await navigator.clipboard.writeText(eveToken);
+          toast.success("Token Copied", {
+            description: "The token has been copied to your clipboard.",
+            duration: 2000,
+          });
+        } else {
+          toast.error("Token Error", {
+            description: "Could not retrieve EVE access token. Please try logging in again.",
+            duration: 3000,
+          });
+          AuthService.clearToken();
+          sessionStorage.setItem('returnPath', location.pathname);
+          navigate('/login');
+        }
+      } catch (error) {
+        console.error('Token verification/refresh error:', error);
+        toast.error("Authentication Error", {
+          description: "Your session has expired. Please log in again.",
+          duration: 3000,
         });
-      } else {
+        AuthService.clearToken();
         sessionStorage.setItem('returnPath', location.pathname);
         navigate('/login');
       }
     } catch (error) {
-      console.error('Error copying token:', error);
-      sessionStorage.setItem('returnPath', location.pathname);
-      navigate('/login');
+      console.error('Error in handleCopyToken:', error);
+      toast.error("Unexpected Error", {
+        description: "An error occurred while copying the token.",
+        duration: 3000,
+      });
     }
   };
 
