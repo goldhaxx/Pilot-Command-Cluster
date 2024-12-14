@@ -155,6 +155,21 @@ export class ESIService {
 
   private async makeAuthenticatedRequest<T>(url: string): Promise<T> {
     try {
+      // First verify we have a valid auth token
+      const authToken = AuthService.getToken();
+      if (!authToken) {
+        throw new Error('No authentication token available');
+      }
+
+      // Verify the auth token is valid
+      try {
+        await AuthService.verifyToken(authToken);
+      } catch (error) {
+        AuthService.clearToken();
+        throw new Error('Authentication expired - please log in again');
+      }
+
+      // Get EVE access token
       const token = await AuthService.getEveAccessToken();
       if (!token) {
         throw new Error('No EVE access token available');
@@ -170,26 +185,29 @@ export class ESIService {
 
       if (!response.ok) {
         if (response.status === 403) {
-          // Don't clear the token immediately
-          // Try to refresh the token first
+          // Token might be expired, try to get a fresh one
           const newToken = await AuthService.getEveAccessToken();
-          if (newToken) {
-            // Retry the request with the new token
-            const retryResponse = await fetch(url, {
-              headers: {
-                'Authorization': `Bearer ${newToken}`,
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-              }
-            });
-            
-            if (retryResponse.ok) {
-              return await retryResponse.json();
-            }
+          if (!newToken) {
+            AuthService.clearToken();
+            throw new Error('Authentication expired - please log in again');
           }
-          // Only clear token if refresh failed
-          AuthService.clearToken();
-          throw new Error('Authentication expired - please log in again');
+
+          // Retry the request with the new token
+          const retryResponse = await fetch(url, {
+            headers: {
+              'Authorization': `Bearer ${newToken}`,
+              'Accept': 'application/json',
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (!retryResponse.ok) {
+            // If retry fails, clear tokens and require re-login
+            AuthService.clearToken();
+            throw new Error('Authentication expired - please log in again');
+          }
+
+          return await retryResponse.json();
         }
         throw new Error(`Request failed: ${response.status}`);
       }

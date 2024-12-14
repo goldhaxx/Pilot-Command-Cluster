@@ -10,7 +10,7 @@ import {
 import LoginPage from './pages/LoginPage';
 import AuthCallback from './pages/AuthCallback';
 import ProfilePage from './pages/ProfilePage';
-import Dashboard from './pages/Dashboard';
+import DashboardPage from './pages/DashboardPage';
 import PlanetaryIndustry from './pages/PlanetaryIndustry';
 import { AuthService } from './services/auth.service';
 
@@ -26,7 +26,7 @@ const router = createBrowserRouter(
       <Route path="/login" element={<LoginPage />} />
       <Route path="/auth-callback" element={<AuthCallback />} />
       <Route path="/profile" element={<ProtectedRoute element={<ProfilePage />} />} />
-      <Route path="/dashboard" element={<ProtectedRoute element={<Dashboard />} />} />
+      <Route path="/dashboard" element={<ProtectedRoute element={<DashboardPage />} />} />
       <Route path="/planetary-industry" element={<ProtectedRoute element={<PlanetaryIndustry />} />} />
       <Route path="/" element={<Navigate to="/dashboard" />} />
     </Route>
