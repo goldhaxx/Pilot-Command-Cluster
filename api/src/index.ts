@@ -6,6 +6,8 @@ import passport from 'passport';
 import authRoutes from './routes/auth.routes';
 import { AuthService } from './services/auth.service';
 import debug from 'debug';
+import { logger } from './utils/logger';
+import { apiLogger } from './middleware/apiLogger.middleware';
 
 // Enable debug logging in development
 if (process.env.NODE_ENV !== 'production') {
@@ -53,6 +55,9 @@ app.use(express.json());
 app.use(passport.initialize());
 app.use(passport.session());
 
+// Add API logger middleware to all routes
+app.use(apiLogger);
+
 // Routes
 app.use('/auth', authRoutes);
 
@@ -64,11 +69,64 @@ app.get('/health', (_req, res) => {
 // Start server
 const startServer = async () => {
   try {
-    app.listen(port, () => {
+    const server = app.listen(port, () => {
+      const serverInfo = {
+        event: 'SERVER_START',
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV,
+        port: port,
+        config: {
+          allowedOrigins,
+          eveCallbackUrl: process.env.EVE_CALLBACK_URL,
+          frontendUrl: process.env.FRONTEND_URL,
+          nodeEnv: process.env.NODE_ENV
+        }
+      };
+
+      // Log server start
+      logger.info('Server started successfully', serverInfo);
       console.log(`Server is running on port ${port}`);
       console.log(`EVE Online SSO callback URL: ${process.env.EVE_CALLBACK_URL}`);
     });
+
+    // Handle graceful shutdown
+    const shutdown = (signal: string) => {
+      console.log(`\n${signal} received. Starting graceful shutdown...`);
+      
+      server.close(() => {
+        const shutdownInfo = {
+          event: 'SERVER_STOP',
+          timestamp: new Date().toISOString(),
+          environment: process.env.NODE_ENV,
+          signal: signal,
+          message: 'Server shutdown completed'
+        };
+
+        // Log server stop
+        logger.info('Server stopped', shutdownInfo);
+        
+        process.exit(0);
+      });
+    };
+
+    // Handle shutdown signals
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
+
   } catch (error) {
+    const errorInfo = {
+      event: 'SERVER_START_ERROR',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV,
+      port: port,
+      error: error instanceof Error ? {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      } : error
+    };
+
+    logger.error('Failed to start server', errorInfo);
     console.error('Failed to start server:', error);
     process.exit(1);
   }
