@@ -156,12 +156,10 @@ export class AuthService {
       });
       try {
         // Updated verification endpoint
-        logVerify('Making verification request to EVE SSO');
-        const response = await axios.get('https://login.eveonline.com/v2/oauth/verify', {
+        logVerify('Making verification request to ESI');
+        const response = await axios.get('https://esi.evetech.net/verify/', {
           headers: { 
             'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
             'User-Agent': 'Pilot Command Cluster - Contact: your@email.com'
           }
         });
