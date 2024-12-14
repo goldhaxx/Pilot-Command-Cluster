@@ -82,7 +82,7 @@ export class AuthService {
       tokenURL: 'https://login.eveonline.com/v2/oauth/token',
       clientID: this.clientId,
       clientSecret: this.clientSecret,
-      callbackURL: callbackUrl,
+      callbackURL: this.callbackUrl,
       scope: [
         'publicData',
         'esi-calendar.read_calendar_events.v1',
@@ -142,9 +142,14 @@ export class AuthService {
         'esi-corporations.read_fw_stats.v1',
         'esi-characterstats.read.v1',
       ],
-      state: true  // Enable CSRF protection
-    }, async (accessToken: string, refreshToken: string, params: any, _profile: any, done: VerifyCallback) => {
-      logVerify('Starting OAuth verification');
+      state: true,
+      passReqToCallback: true
+    }, async (req: any, accessToken: string, refreshToken: string, params: any, _profile: any, done: VerifyCallback) => {
+      logVerify('Starting OAuth verification with params:', {
+        hasAccessToken: !!accessToken,
+        hasRefreshToken: !!refreshToken,
+        params: params
+      });
       try {
         // Updated verification endpoint
         logVerify('Making verification request to EVE SSO');
@@ -157,7 +162,8 @@ export class AuthService {
 
         logVerify('Received verification response:', {
           status: response.status,
-          hasData: !!response.data
+          hasData: !!response.data,
+          data: response.data
         });
 
         const characterData = response.data as EveCharacterData;

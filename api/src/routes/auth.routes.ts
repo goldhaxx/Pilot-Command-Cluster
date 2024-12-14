@@ -16,7 +16,7 @@ router.get('/login', (req: Request, res: Response, next) => {
   
   return passport.authenticate('oauth2', {
     failureRedirect: `${frontendUrl}/login`,
-    state: true
+    state: 'secure'
   })(req, res, next);
 });
 
@@ -24,12 +24,27 @@ router.get('/login', (req: Request, res: Response, next) => {
 router.get('/callback', (req: Request, res: Response, next) => {
   const frontendUrl = process.env.FRONTEND_URL || 'https://pilot-command-cluster-web.vercel.app';
   
+  logApiCall('incoming', {
+    type: 'auth_callback',
+    query: req.query,
+    headers: req.headers
+  });
+
   passport.authenticate('oauth2', { 
     failureRedirect: `${frontendUrl}/login`,
     session: false
-  }, (err, user) => {
-    if (err || !user) {
-      logError('Authentication failed', err);
+  }, (err: any, user: any) => {
+    if (err) {
+      logError('Authentication failed with error', {
+        error: err.message,
+        stack: err.stack,
+        query: req.query
+      });
+      return res.redirect(`${frontendUrl}/login?error=${encodeURIComponent(err.message)}`);
+    }
+    
+    if (!user) {
+      logError('Authentication failed - no user returned');
       return res.redirect(`${frontendUrl}/login?error=Authentication failed`);
     }
 
