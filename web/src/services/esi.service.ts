@@ -170,9 +170,9 @@ export class ESIService {
 
       if (!response.ok) {
         if (response.status === 403) {
-          // Try to get a fresh token
-          AuthService.clearToken(); // Clear the current token
-          const newToken = await AuthService.getEveAccessToken(); // This will trigger a refresh
+          // Don't clear the token immediately
+          // Try to refresh the token first
+          const newToken = await AuthService.getEveAccessToken();
           if (newToken) {
             // Retry the request with the new token
             const retryResponse = await fetch(url, {
@@ -187,6 +187,8 @@ export class ESIService {
               return await retryResponse.json();
             }
           }
+          // Only clear token if refresh failed
+          AuthService.clearToken();
           throw new Error('Authentication expired - please log in again');
         }
         throw new Error(`Request failed: ${response.status}`);

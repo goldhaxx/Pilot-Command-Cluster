@@ -127,38 +127,43 @@ const ProfilePage: React.FC = () => {
             notificationsData,
             planetsData
           ] = await Promise.all([
-            ESIService.getInstance().getCharacterLocation(userData.characterId),
-            ESIService.getInstance().getCharacterCorpHistory(userData.characterId),
-            ESIService.getInstance().getCharacterAttributes(userData.characterId),
-            ESIService.getInstance().getCharacterPublicInfo(userData.characterId),
-            ESIService.getInstance().getCharacterSkills(userData.characterId),
-            ESIService.getInstance().getCharacterSkillQueue(userData.characterId),
-            ESIService.getInstance().getCharacterOnlineStatus(userData.characterId),
-            ESIService.getInstance().getCharacterNotifications(userData.characterId),
-            ESIService.getInstance().getCharacterPlanets(userData.characterId)
+            ESIService.getInstance().getCharacterLocation(userData.characterId).catch(() => null),
+            ESIService.getInstance().getCharacterCorpHistory(userData.characterId).catch(() => []),
+            ESIService.getInstance().getCharacterAttributes(userData.characterId).catch(() => null),
+            ESIService.getInstance().getCharacterPublicInfo(userData.characterId).catch(() => null),
+            ESIService.getInstance().getCharacterSkills(userData.characterId).catch(() => null),
+            ESIService.getInstance().getCharacterSkillQueue(userData.characterId).catch(() => []),
+            ESIService.getInstance().getCharacterOnlineStatus(userData.characterId).catch(() => null),
+            ESIService.getInstance().getCharacterNotifications(userData.characterId).catch(() => []),
+            ESIService.getInstance().getCharacterPlanets(userData.characterId).catch(() => [])
           ]);
 
-          setLocation(locationData);
-          setCorpHistory(historyData);
-          setAttributes(attributesData);
-          setPublicInfo(publicInfoData);
-          setSkills(skillsData);
-          setSkillQueue(skillQueueData);
-          setOnlineStatus(onlineStatusData);
-          setNotifications(notificationsData);
-          setPlanets(planetsData);
+          if (locationData) setLocation(locationData);
+          if (historyData.length) setCorpHistory(historyData);
+          if (attributesData) setAttributes(attributesData);
+          if (publicInfoData) setPublicInfo(publicInfoData);
+          if (skillsData) setSkills(skillsData);
+          if (skillQueueData.length) setSkillQueue(skillQueueData);
+          if (onlineStatusData) setOnlineStatus(onlineStatusData);
+          if (notificationsData.length) setNotifications(notificationsData);
+          if (planetsData.length) setPlanets(planetsData);
+
         } catch (error) {
           if (error instanceof Error && error.message.includes('Authentication expired')) {
             AuthService.clearToken();
             window.location.href = '/login';
             return;
           }
-          throw error;
+          console.error('Error loading character data:', error);
         }
       } catch (err) {
         console.error('Error loading character info:', err);
         if (err instanceof Error && err.message.includes('Authentication expired')) {
           setError('Your session has expired. Please log in again.');
+          setTimeout(() => {
+            AuthService.clearToken();
+            window.location.href = '/login';
+          }, 2000);
         } else {
           setError('Failed to load character information');
         }
@@ -555,7 +560,9 @@ const ProfilePage: React.FC = () => {
                                   <PaginationPrevious 
                                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                                     className={currentPage === 1 ? 'pointer-events-none opacity-50' : ''}
-                                  />
+                                  >
+                                    Previous
+                                  </PaginationPrevious>
                                 </PaginationItem>
                                 
                                 {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
@@ -573,7 +580,9 @@ const ProfilePage: React.FC = () => {
                                   <PaginationNext
                                     onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                                     className={currentPage === totalPages ? 'pointer-events-none opacity-50' : ''}
-                                  />
+                                  >
+                                    Next
+                                  </PaginationNext>
                                 </PaginationItem>
                               </PaginationContent>
                             </Pagination>
