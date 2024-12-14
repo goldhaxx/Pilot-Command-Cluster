@@ -14,9 +14,13 @@ router.use(apiLogger);
 router.get('/login', (req: Request, res: Response, next) => {
   const frontendUrl = process.env.FRONTEND_URL || 'https://pilot-command-cluster-web.vercel.app';
   
+  logApiCall('outgoing', {
+    type: 'login_redirect',
+    frontendUrl: frontendUrl
+  });
+
   return passport.authenticate('oauth2', {
-    failureRedirect: `${frontendUrl}/login`,
-    state: 'secure'
+    failureRedirect: `${frontendUrl}/login`
   })(req, res, next);
 });
 

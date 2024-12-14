@@ -142,13 +142,14 @@ export class AuthService {
         'esi-corporations.read_fw_stats.v1',
         'esi-characterstats.read.v1',
       ],
-      state: true,
-      passReqToCallback: true
-    }, async (req: any, accessToken: string, refreshToken: string, params: any, _profile: any, done: VerifyCallback) => {
+      state: true
+    }, async (accessToken: string, refreshToken: string, params: any, _profile: any, done: VerifyCallback) => {
       logVerify('Starting OAuth verification with params:', {
         hasAccessToken: !!accessToken,
         hasRefreshToken: !!refreshToken,
-        params: params
+        params: params,
+        tokenUrl: 'https://login.eveonline.com/v2/oauth/token',
+        verifyUrl: 'https://esi.evetech.net/verify/'
       });
       try {
         // Updated verification endpoint
