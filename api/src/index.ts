@@ -22,12 +22,17 @@ const port = process.env.PORT || 3001;
 app.use(session({
   secret: process.env.JWT_SECRET || 'your-secret-key',
   resave: false,
-  saveUninitialized: false,
+  saveUninitialized: true,
   cookie: {
     secure: process.env.NODE_ENV === 'production',
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
-  }
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    sameSite: 'none'
+  },
+  proxy: true // Trust the reverse proxy
 }));
+
+// Enable trust proxy for secure cookies behind reverse proxy
+app.set('trust proxy', 1);
 
 // Initialize authentication service
 AuthService.getInstance();
