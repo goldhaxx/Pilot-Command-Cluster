@@ -145,17 +145,14 @@ export class AuthService {
       state: true,
       pkce: false,
       customHeaders: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'User-Agent': 'Pilot Command Cluster - Contact: your@email.com'
-      }
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Host': 'login.eveonline.com'
+      },
     }, async (accessToken: string, refreshToken: string, params: any, _profile: any, done: VerifyCallback) => {
-      logVerify('Starting OAuth verification with request details:', {
+      logVerify('Starting OAuth verification with params:', {
         hasAccessToken: !!accessToken,
         hasRefreshToken: !!refreshToken,
-        params: params,
-        query: req.query,
-        state: req.query.state
+        params: params
       });
       try {
         // Updated verification endpoint
