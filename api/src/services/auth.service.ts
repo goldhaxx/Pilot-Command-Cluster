@@ -144,8 +144,12 @@ export class AuthService {
       ],
       state: true,
       pkce: false,
-      passReqToCallback: true
-    }, async (req: any, accessToken: string, refreshToken: string, params: any, _profile: any, done: VerifyCallback) => {
+      customHeaders: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'User-Agent': 'Pilot Command Cluster - Contact: your@email.com'
+      }
+    }, async (accessToken: string, refreshToken: string, params: any, _profile: any, done: VerifyCallback) => {
       logVerify('Starting OAuth verification with request details:', {
         hasAccessToken: !!accessToken,
         hasRefreshToken: !!refreshToken,
@@ -159,6 +163,8 @@ export class AuthService {
         const response = await axios.get('https://login.eveonline.com/v2/oauth/verify', {
           headers: { 
             'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
             'User-Agent': 'Pilot Command Cluster - Contact: your@email.com'
           }
         });
@@ -192,7 +198,8 @@ export class AuthService {
           message: error.message,
           status: error.response?.status,
           data: error.response?.data,
-          stack: error.stack
+          stack: error.stack,
+          headers: error.response?.headers
         });
         return done(error);
       }
