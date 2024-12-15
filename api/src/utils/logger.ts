@@ -2,10 +2,10 @@ import winston from 'winston';
 import path from 'path';
 import fs from 'fs';
 
-const { combine, timestamp, printf, colorize } = winston.format;
+const { combine, timestamp, printf, colorize, json } = winston.format;
 
-// Custom format for log messages
-const logFormat = printf(({ level, message, timestamp, ...metadata }) => {
+// Custom format for console output
+const consoleFormat = printf(({ level, message, timestamp, ...metadata }) => {
   let msg = `${timestamp} [${level}]: ${message}`;
   if (Object.keys(metadata).length > 0) {
     msg += ` ${JSON.stringify(metadata)}`;
@@ -13,19 +13,51 @@ const logFormat = printf(({ level, message, timestamp, ...metadata }) => {
   return msg;
 });
 
-// Initialize logger with console transport by default
+// Custom format for file output
+const fileFormat = winston.format.printf(info => {
+  const { timestamp, level, message, ...metadata } = info;
+  return JSON.stringify({
+    timestamp,
+    level,
+    message,
+    ...metadata
+  }, null, 2);
+});
+
+// Ensure logs directory exists
+const logsDir = path.join(process.cwd(), 'logs');
+console.log('Logs directory path:', logsDir);
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('Directory exists:', fs.existsSync(logsDir));
+
+// Try to write a test file to verify permissions
+if (process.env.NODE_ENV === 'development') {
+  try {
+    if (!fs.existsSync(logsDir)) {
+      fs.mkdirSync(logsDir, { recursive: true });
+    }
+    const testPath = path.join(logsDir, 'test.log');
+    fs.writeFileSync(testPath, 'Test log entry\n');
+    console.log('Successfully wrote test file to:', testPath);
+  } catch (error) {
+    console.error('Failed to write test file:', error);
+  }
+}
+
+// Create base logger configuration
 const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || 'info',
   format: combine(
     timestamp(),
-    logFormat
+    json()
   ),
   transports: [
+    // Console transport for all environments
     new winston.transports.Console({
       format: combine(
         colorize(),
         timestamp(),
-        logFormat
+        consoleFormat
       )
     })
   ]
@@ -33,39 +65,60 @@ const logger = winston.createLogger({
 
 // Add file transports only in development environment
 if (process.env.NODE_ENV === 'development') {
-  const logsDir = path.join(process.cwd(), 'logs');
-  
-  // Create logs directory if it doesn't exist
-  if (!fs.existsSync(logsDir)) {
-    fs.mkdirSync(logsDir, { recursive: true });
-  }
-
+  // Error log file
   logger.add(new winston.transports.File({
     filename: path.join(logsDir, 'error.log'),
-    level: 'error'
+    level: 'error',
+    format: combine(
+      timestamp(),
+      fileFormat
+    )
   }));
 
+  // API calls log file - captures info and above
   logger.add(new winston.transports.File({
     filename: path.join(logsDir, 'api-calls.log'),
-    level: 'info'
+    level: 'info',
+    format: combine(
+      timestamp(),
+      fileFormat
+    )
   }));
+
+  // Log the initialization
+  logger.info('Logger initialized in development mode with file transport');
 }
 
 // Wrapper functions for logging
 export const logApiCall = (type: 'incoming' | 'outgoing', data: any) => {
-  logger.info(`API ${type.toUpperCase()}`, data);
+  const logData = {
+    type,
+    timestamp: new Date().toISOString(),
+    ...data
+  };
+  logger.info('API Call', logData);
 };
 
 export const logError = (message: string, error: any) => {
-  logger.error(message, error);
-};
-
-export const logErrorEvent = (error: any, context?: any) => {
-  logger.error('Error occurred', { error, context });
+  const logData = {
+    message,
+    timestamp: new Date().toISOString(),
+    ...(error instanceof Error ? {
+      error: error.message,
+      stack: error.stack,
+      name: error.name
+    } : { error })
+  };
+  logger.error('Error', logData);
 };
 
 export const logInfo = (message: string, data?: any) => {
-  logger.info(message, data);
+  const logData = {
+    message,
+    timestamp: new Date().toISOString(),
+    ...(data && { data })
+  };
+  logger.info('Info', logData);
 };
 
 export default logger; 

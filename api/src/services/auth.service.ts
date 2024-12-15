@@ -61,7 +61,7 @@ export class AuthService {
     
     if (missing.length > 0) {
       const error = `Missing required environment variables: ${missing.join(', ')}`;
-      logError(error);
+      logError('Environment validation failed', new Error(error));
       throw new Error(error);
     }
 

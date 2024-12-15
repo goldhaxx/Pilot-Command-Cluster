@@ -6,8 +6,10 @@ import passport from 'passport';
 import authRoutes from './routes/auth.routes';
 import { AuthService } from './services/auth.service';
 import debug from 'debug';
-import { logger } from './utils/logger';
+import { logInfo, logError } from './utils/logger';
 import { apiLogger } from './middleware/apiLogger.middleware';
+import path from 'path';
+import fs from 'fs';
 
 // Enable debug logging in development
 if (process.env.NODE_ENV !== 'production') {
@@ -17,21 +19,43 @@ if (process.env.NODE_ENV !== 'production') {
 // Load environment variables
 dotenv.config();
 
+logInfo('Starting server with environment configuration', {
+  NODE_ENV: process.env.NODE_ENV,
+  LOG_LEVEL: process.env.LOG_LEVEL,
+  logsDirectory: path.join(process.cwd(), 'logs'),
+  logsExist: fs.existsSync(path.join(process.cwd(), 'logs'))
+});
+
 const app = express();
 const port = process.env.PORT || 3001;
 
 // Session configuration
-app.use(session({
+const sessionConfig = {
   secret: process.env.JWT_SECRET || 'your-secret-key',
   resave: false,
   saveUninitialized: true,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    sameSite: 'none'
-  },
-  proxy: true // Trust the reverse proxy
-}));
+  proxy: true,
+  cookie: process.env.NODE_ENV === 'production' 
+    ? {
+        secure: true,
+        sameSite: 'none' as const,
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000
+      }
+    : {
+        secure: false,
+        sameSite: 'lax' as const,
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000
+      }
+};
+
+// In production, ensure cookies are secure
+if (process.env.NODE_ENV === 'production') {
+  sessionConfig.cookie.secure = true; // Require HTTPS
+}
+
+app.use(session(sessionConfig));
 
 // Enable trust proxy for secure cookies behind reverse proxy
 app.set('trust proxy', 1);
@@ -55,6 +79,9 @@ app.use(express.json());
 app.use(passport.initialize());
 app.use(passport.session());
 
+// Handle favicon.ico requests before other middleware
+app.get('/favicon.ico', (_req, res) => res.status(404).end());
+
 // Add API logger middleware to all routes
 app.use(apiLogger);
 
@@ -70,23 +97,16 @@ app.get('/health', (_req, res) => {
 const startServer = async () => {
   try {
     const server = app.listen(port, () => {
-      const serverInfo = {
-        event: 'SERVER_START',
-        timestamp: new Date().toISOString(),
+      logInfo('Server started successfully', {
         environment: process.env.NODE_ENV,
         port: port,
         config: {
           allowedOrigins,
           eveCallbackUrl: process.env.EVE_CALLBACK_URL,
-          frontendUrl: process.env.FRONTEND_URL,
-          nodeEnv: process.env.NODE_ENV
+          frontendUrl: process.env.FRONTEND_URL
         }
-      };
-
-      // Log server start
-      logger.info('Server started successfully', serverInfo);
-      console.log(`Server is running on port ${port}`);
-      console.log(`EVE Online SSO callback URL: ${process.env.EVE_CALLBACK_URL}`);
+      });
+      logError('Server lifecycle event', { event: 'START', port, environment: process.env.NODE_ENV });
     });
 
     // Handle graceful shutdown
@@ -94,17 +114,11 @@ const startServer = async () => {
       console.log(`\n${signal} received. Starting graceful shutdown...`);
       
       server.close(() => {
-        const shutdownInfo = {
-          event: 'SERVER_STOP',
-          timestamp: new Date().toISOString(),
-          environment: process.env.NODE_ENV,
-          signal: signal,
-          message: 'Server shutdown completed'
-        };
-
-        // Log server stop
-        logger.info('Server stopped', shutdownInfo);
-        
+        logInfo('Server stopped', {
+          signal,
+          environment: process.env.NODE_ENV
+        });
+        logError('Server lifecycle event', { event: 'STOP', signal, environment: process.env.NODE_ENV });
         process.exit(0);
       });
     };
@@ -114,20 +128,7 @@ const startServer = async () => {
     process.on('SIGINT', () => shutdown('SIGINT'));
 
   } catch (error) {
-    const errorInfo = {
-      event: 'SERVER_START_ERROR',
-      timestamp: new Date().toISOString(),
-      environment: process.env.NODE_ENV,
-      port: port,
-      error: error instanceof Error ? {
-        message: error.message,
-        stack: error.stack,
-        name: error.name
-      } : error
-    };
-
-    logger.error('Failed to start server', errorInfo);
-    console.error('Failed to start server:', error);
+    logError('Failed to start server', error);
     process.exit(1);
   }
 };

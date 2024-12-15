@@ -15,6 +15,7 @@ const DashboardPage: React.FC = () => {
       try {
         const token = AuthService.getToken();
         if (!token) {
+          setError('No authentication token found');
           sessionStorage.setItem('returnPath', location.pathname);
           navigate('/login');
           return;
@@ -23,6 +24,8 @@ const DashboardPage: React.FC = () => {
         await AuthService.verifyToken(token);
         setLoading(false);
       } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Authentication failed';
+        setError(errorMessage);
         console.error('Authentication error:', err);
         sessionStorage.setItem('returnPath', location.pathname);
         navigate('/login');

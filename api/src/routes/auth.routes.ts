@@ -53,7 +53,7 @@ router.get('/callback', (req: Request, res: Response, next) => {
     }
     
     if (!user) {
-      logError('Authentication failed - no user returned');
+      logError('Authentication failed', new Error('No user returned from authentication'));
       return res.redirect(`${frontendUrl}/login?error=Authentication failed`);
     }
 
@@ -135,7 +135,7 @@ router.post('/refresh', async (req: Request, res: Response) => {
   const { refreshToken } = req.body;
 
   if (!refreshToken) {
-    logError('Refresh token missing from request');
+    logError('Refresh token missing from request', new Error('No refresh token provided in request body'));
     return res.status(400).json({ error: 'No refresh token provided' });
   }
 
