@@ -195,4 +195,32 @@ export const logApiCall = (type: 'outgoing' | 'incoming', data: any) => {
 
 export const logErrorEvent = (error: any, context?: any) => {
   logger.logError(error, context);
+};
+
+// Wrapper for fetch to log API calls
+export const loggedFetch = async (url: string, options: RequestInit = {}): Promise<Response> => {
+  const requestData = sanitizeData({
+    url,
+    method: options.method || 'GET',
+    headers: options.headers,
+    body: options.body
+  });
+
+  logApiCall('outgoing', requestData);
+
+  try {
+    const response = await fetch(url, options);
+    const responseData = sanitizeData({
+      url,
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers
+    });
+
+    logApiCall('incoming', responseData);
+    return response;
+  } catch (error) {
+    logErrorEvent(error, { url, options });
+    throw error;
+  }
 }; 
