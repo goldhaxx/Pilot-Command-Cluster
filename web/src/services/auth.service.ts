@@ -1,8 +1,7 @@
 import debug from 'debug';
-import { loggedFetch } from '../utils/logger';
+import { logErrorEvent, loggedFetch } from '../utils/logger';
 
 const logAuth = debug('pcc:web:auth');
-const logError = debug('pcc:web:auth:error');
 
 interface TokenData {
   token: string;
@@ -61,7 +60,25 @@ export class AuthService {
 
   public static initiateLogin(): void {
     logAuth('Initiating login via static method');
-    this.getInstance().login();
+    try {
+      // Save current path for post-login redirect
+      const currentPath = window.location.pathname;
+      if (currentPath !== '/login' && currentPath !== '/auth-callback') {
+        sessionStorage.setItem('returnPath', currentPath);
+      }
+      
+      this.getInstance().login();
+    } catch (error) {
+      logErrorEvent(error, {
+        context: 'AuthService.initiateLogin',
+        timestamp: new Date().toISOString()
+      });
+      throw error;
+    }
+  }
+
+  public static getLoginUrl(): string {
+    return `${this.getInstance().baseUrl}/auth/login`;
   }
 
   public static isAuthenticated(): boolean {
@@ -101,7 +118,7 @@ export class AuthService {
       try {
         await this.refreshEveAccessToken();
       } catch (error) {
-        logError('Failed to refresh EVE access token:', error);
+        logErrorEvent(error, { context: 'refreshing EVE access token' });
         this.clearToken(); // Clear tokens on refresh failure
         return null;
       }
@@ -139,7 +156,7 @@ export class AuthService {
       
       logAuth('Successfully refreshed EVE access token');
     } catch (error) {
-      logError('Error refreshing EVE access token:', error);
+      logErrorEvent(error, { context: 'refreshing EVE access token' });
       throw error;
     }
   }
@@ -147,11 +164,23 @@ export class AuthService {
   public async login(): Promise<void> {
     logAuth('Initiating login process');
     try {
-      const loginUrl = `${this.baseUrl}/auth/login`;
-      logAuth('Redirecting to:', loginUrl);
-      window.location.href = loginUrl;
+      const loginUrl = AuthService.getLoginUrl();
+      logAuth('Login URL:', loginUrl);
+      
+      // Log the redirect attempt
+      logAuth('Redirecting to login URL', {
+        type: 'login_redirect',
+        url: loginUrl,
+        timestamp: new Date().toISOString()
+      });
+
+      // Force a full page redirect
+      window.location.replace(loginUrl);
     } catch (error) {
-      logError('Login failed:', error);
+      logErrorEvent(error, {
+        context: 'AuthService.login',
+        timestamp: new Date().toISOString()
+      });
       throw error;
     }
   }
@@ -167,7 +196,7 @@ export class AuthService {
       logAuth('Callback processed successfully');
       return data;
     } catch (error) {
-      logError('Callback processing failed:', error);
+      logErrorEvent(error, { context: 'callback processing' });
       throw error;
     }
   }
@@ -191,13 +220,14 @@ export class AuthService {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: response.statusText }));
-        logError('Token verification failed:', {
+        const error = new Error(errorData.message || 'Invalid token');
+        logErrorEvent(error, {
           status: response.status,
           statusText: response.statusText,
           error: errorData,
           url: url
         });
-        throw new Error(errorData.message || 'Invalid token');
+        throw error;
       }
 
       const data = await response.json();
@@ -208,7 +238,7 @@ export class AuthService {
 
       return data;
     } catch (error) {
-      logError('Token verification error:', {
+      logErrorEvent(error, {
         error: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined
       });

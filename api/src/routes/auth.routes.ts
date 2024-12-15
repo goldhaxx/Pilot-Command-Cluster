@@ -3,6 +3,7 @@ import passport from 'passport';
 import { AuthService } from '../services/auth.service';
 import { apiLogger } from '../middleware/apiLogger.middleware';
 import { logApiCall, logError } from '../utils/logger';
+import { AuthenticateOptions } from 'passport';
 
 const router = Router();
 const authService = AuthService.getInstance();
@@ -12,21 +13,24 @@ router.use(apiLogger);
 
 // Initialize EVE Online SSO authentication
 router.get('/login', (req: Request, res: Response, next) => {
-  const frontendUrl = process.env.FRONTEND_URL || 'https://pilot-command-cluster-web.vercel.app';
+  const frontendUrl = authService.getFrontendUrl();
   
   logApiCall('outgoing', {
     type: 'login_redirect',
     frontendUrl: frontendUrl
   });
 
-  return passport.authenticate('oauth2', {
-    failureRedirect: `${frontendUrl}/login`
-  })(req, res, next);
+  const authOptions: AuthenticateOptions = {
+    failureRedirect: `${frontendUrl}/login`,
+    state: 'true'
+  };
+
+  return passport.authenticate('oauth2', authOptions)(req, res, next);
 });
 
 // Callback URL for EVE Online SSO
 router.get('/callback', (req: Request, res: Response, next) => {
-  const frontendUrl = process.env.FRONTEND_URL || 'https://pilot-command-cluster-web.vercel.app';
+  const frontendUrl = authService.getFrontendUrl();
   
   logApiCall('incoming', {
     type: 'auth_callback',
@@ -39,12 +43,13 @@ router.get('/callback', (req: Request, res: Response, next) => {
     session: false
   }, (err: any, user: any) => {
     if (err) {
+      const errorMessage = err.message || 'Authentication failed';
       logError('Authentication failed with error', {
         error: err.message,
         stack: err.stack,
         query: req.query
       });
-      return res.redirect(`${frontendUrl}/login?error=${encodeURIComponent(err.message)}`);
+      return res.redirect(`${frontendUrl}/login?error=${encodeURIComponent(errorMessage)}`);
     }
     
     if (!user) {
@@ -65,13 +70,22 @@ router.get('/callback', (req: Request, res: Response, next) => {
         status: 'success',
         hasToken: !!token,
         hasEveAccessToken: !!user.accessToken,
-        hasRefreshToken: !!user.refreshToken
+        hasRefreshToken: !!user.refreshToken,
+        redirectUrl: redirectUrl.toString()
       });
 
       return res.redirect(redirectUrl.toString());
     } catch (error) {
-      logError('Failed to process authentication', error);
-      return res.redirect(`${frontendUrl}/login?error=Failed to process authentication`);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to process authentication';
+      logError('Failed to process authentication', {
+        error,
+        user: {
+          id: user.id,
+          characterId: user.characterId,
+          characterName: user.characterName
+        }
+      });
+      return res.redirect(`${frontendUrl}/login?error=${encodeURIComponent(errorMessage)}`);
     }
   })(req, res, next);
 });
@@ -103,14 +117,15 @@ router.get('/verify', (req: Request, res: Response) => {
     });
     return res.json(decoded);
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logError('Token verification failed', {
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorMessage,
       token: token.substring(0, 10) + '...',
       stack: error instanceof Error ? error.stack : undefined
     });
     return res.status(401).json({ 
       error: 'Invalid token',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: errorMessage
     });
   }
 });
@@ -138,11 +153,12 @@ router.post('/refresh', async (req: Request, res: Response) => {
       expiresIn
     });
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logError('Token refresh failed', {
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorMessage,
       stack: error instanceof Error ? error.stack : undefined
     });
-    return res.status(401).json({ error: 'Failed to refresh token' });
+    return res.status(401).json({ error: 'Failed to refresh token', message: errorMessage });
   }
 });
 

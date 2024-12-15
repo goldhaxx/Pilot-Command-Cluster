@@ -30,32 +30,49 @@ export class AuthService {
   private readonly clientSecret: string;
   private readonly callbackUrl: string;
   private readonly jwtSecret: string;
+  private readonly frontendUrl: string;
 
   private constructor() {
     logAuth('Initializing AuthService');
     
-    // Log environment configuration
-    logAuth('Environment configuration:', {
-      hasClientId: !!process.env.EVE_CLIENT_ID,
-      hasClientSecret: !!process.env.EVE_CLIENT_SECRET,
-      callbackUrl: process.env.EVE_CALLBACK_URL,
-      nodeEnv: process.env.NODE_ENV
-    });
-
+    // Get environment variables
     this.clientId = process.env.EVE_CLIENT_ID || '';
     this.clientSecret = process.env.EVE_CLIENT_SECRET || '';
     this.callbackUrl = process.env.EVE_CALLBACK_URL || '';
-    this.jwtSecret = process.env.JWT_SECRET || 'default-secret';
+    this.jwtSecret = process.env.JWT_SECRET || '';
+    this.frontendUrl = process.env.FRONTEND_URL || '';
 
-    if (!this.clientId || !this.clientSecret || !this.callbackUrl) {
-      const missing = [];
-      if (!this.clientId) missing.push('EVE_CLIENT_ID');
-      if (!this.clientSecret) missing.push('EVE_CLIENT_SECRET');
-      if (!this.callbackUrl) missing.push('EVE_CALLBACK_URL');
-      
-      const error = `Missing required EVE Online SSO configuration: ${missing.join(', ')}`;
+    // Log environment configuration
+    logAuth('Environment configuration:', {
+      hasClientId: !!this.clientId,
+      hasClientSecret: !!this.clientSecret,
+      callbackUrl: this.callbackUrl,
+      frontendUrl: this.frontendUrl,
+      nodeEnv: process.env.NODE_ENV
+    });
+
+    // Validate required environment variables
+    const missing = [];
+    if (!this.clientId) missing.push('EVE_CLIENT_ID');
+    if (!this.clientSecret) missing.push('EVE_CLIENT_SECRET');
+    if (!this.callbackUrl) missing.push('EVE_CALLBACK_URL');
+    if (!this.jwtSecret) missing.push('JWT_SECRET');
+    if (!this.frontendUrl) missing.push('FRONTEND_URL');
+    
+    if (missing.length > 0) {
+      const error = `Missing required environment variables: ${missing.join(', ')}`;
       logError(error);
       throw new Error(error);
+    }
+
+    // Validate URLs
+    try {
+      new URL(this.callbackUrl);
+      new URL(this.frontendUrl);
+    } catch (error) {
+      const urlError = 'Invalid URL format in environment variables';
+      logError(urlError, { error, callbackUrl: this.callbackUrl, frontendUrl: this.frontendUrl });
+      throw new Error(urlError);
     }
 
     this.configurePassport();
@@ -70,12 +87,9 @@ export class AuthService {
 
   private configurePassport() {
     logAuth('Configuring Passport OAuth2 strategy');
-
-    const callbackUrl = process.env.EVE_CALLBACK_URL || 'http://localhost:3001/auth/callback';
-    const frontendUrl = process.env.FRONTEND_URL || 'https://pilot-command-cluster-web.vercel.app';
     
-    logAuth('Using callback URL:', callbackUrl);
-    logAuth('Using frontend URL:', frontendUrl);
+    logAuth('Using callback URL:', this.callbackUrl);
+    logAuth('Using frontend URL:', this.frontendUrl);
 
     passport.use(new OAuth2Strategy({
       authorizationURL: 'https://login.eveonline.com/v2/oauth/authorize',
@@ -140,7 +154,7 @@ export class AuthService {
         'esi-alliances.read_contacts.v1',
         'esi-characters.read_fw_stats.v1',
         'esi-corporations.read_fw_stats.v1',
-        'esi-characterstats.read.v1',
+        'esi-characterstats.read.v1'
       ],
       state: true,
       pkce: false,
@@ -154,6 +168,7 @@ export class AuthService {
         hasRefreshToken: !!refreshToken,
         params: params
       });
+
       try {
         // Updated verification endpoint
         logVerify('Making verification request to ESI');
@@ -217,6 +232,11 @@ export class AuthService {
         refresh_token: refreshToken,
         client_id: this.clientId,
         client_secret: this.clientSecret
+      }, {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Host': 'login.eveonline.com'
+        }
       });
 
       logAuth('Token refresh successful');
@@ -246,20 +266,18 @@ export class AuthService {
   }
 
   public verifyToken(token: string): any {
-    logAuth('Starting OAuth verification');
+    logAuth('Starting token verification');
     
     try {
-      logAuth('Making verification request to EVE SSO');
-      // Verify the JWT token using the same secret used for generation
+      logAuth('Verifying JWT token');
       const decoded = jwt.verify(token, this.jwtSecret);
       
-      logAuth('Received verification response:', { 
-        status: 200, 
+      logAuth('Token verification successful:', { 
         hasData: !!decoded 
       });
 
       if (decoded && typeof decoded === 'object') {
-        logAuth('Verification successful for character:', {
+        logAuth('Token contains valid user data:', {
           characterId: decoded.characterId,
           characterName: decoded.characterName
         });
@@ -287,5 +305,9 @@ export class AuthService {
       });
       throw error;
     }
+  }
+
+  public getFrontendUrl(): string {
+    return this.frontendUrl;
   }
 } 

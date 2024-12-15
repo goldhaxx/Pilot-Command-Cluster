@@ -1,9 +1,36 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { AuthService } from '../services/auth.service';
+import { logErrorEvent, logLifecycleEvent } from '../utils/logger';
 
 const LoginPage: React.FC = () => {
-  const handleLogin = () => {
-    AuthService.initiateLogin();
+  const [error, setError] = useState<string | null>(null);
+
+  const handleLogin = async () => {
+    try {
+      setError(null);
+      
+      logLifecycleEvent('LOGIN_INITIATED', {
+        timestamp: new Date().toISOString(),
+        location: window.location.href
+      });
+      
+      await AuthService.initiateLogin();
+      
+      logLifecycleEvent('LOGIN_REDIRECT_STARTED', {
+        timestamp: new Date().toISOString(),
+        redirectUrl: AuthService.getLoginUrl()
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to initiate login';
+      
+      logErrorEvent(error, {
+        context: 'LoginPage.handleLogin',
+        timestamp: new Date().toISOString()
+      });
+      
+      setError(errorMessage);
+      console.error('Failed to initiate login:', error);
+    }
   };
 
   return (
@@ -15,6 +42,11 @@ const LoginPage: React.FC = () => {
         <p className="text-eve.gray text-eve-normal mb-8">
           Sign in with your EVE Online account
         </p>
+        {error && (
+          <div className="bg-eve.red bg-opacity-20 border border-eve.red rounded p-4 mb-8">
+            <p className="text-eve.red text-eve-normal">{error}</p>
+          </div>
+        )}
         <button
           onClick={handleLogin}
           className="bg-eve.blue text-white px-6 py-3 rounded
