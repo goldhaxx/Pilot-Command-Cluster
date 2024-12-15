@@ -2,126 +2,70 @@ import winston from 'winston';
 import path from 'path';
 import fs from 'fs';
 
-// Debug logging for initialization
-console.log('Initializing logger...');
-console.log('NODE_ENV:', process.env.NODE_ENV);
+const { combine, timestamp, printf, colorize } = winston.format;
 
-// Custom format to ensure JSON-friendly output
-const jsonFormat = winston.format.printf(({ timestamp, level, message, ...meta }) => {
-  const logEntry = {
-    timestamp,
-    level,
-    message,
-    ...meta,
-    error: meta.error instanceof Error ? {
-      message: meta.error.message,
-      stack: meta.error.stack,
-      name: meta.error.name
-    } : meta.error
-  };
-  return JSON.stringify(logEntry, null, 2);
+// Custom format for log messages
+const logFormat = printf(({ level, message, timestamp, ...metadata }) => {
+  let msg = `${timestamp} [${level}]: ${message}`;
+  if (Object.keys(metadata).length > 0) {
+    msg += ` ${JSON.stringify(metadata)}`;
+  }
+  return msg;
 });
 
-// Ensure logs directory exists
-const logsDir = path.join(process.cwd(), 'logs');
-console.log('Logs directory path:', logsDir);
-
-if (!fs.existsSync(logsDir)) {
-  console.log('Creating logs directory...');
-  fs.mkdirSync(logsDir, { recursive: true });
-}
-
-// Define file transport options
-const fileTransportOptions = {
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.errors({ stack: true }),
-    jsonFormat
-  ),
-  maxsize: 5242880, // 5MB
-  maxFiles: 5,
-  tailable: true
-};
-
-// Create logger instance
+// Initialize logger with console transport by default
 const logger = winston.createLogger({
-  level: 'info',
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.errors({ stack: true }),
-    jsonFormat
+  level: process.env.LOG_LEVEL || 'info',
+  format: combine(
+    timestamp(),
+    logFormat
   ),
-  defaultMeta: { service: 'pilot-command-cluster-api' },
   transports: [
     new winston.transports.Console({
-      format: winston.format.combine(
-        winston.format.colorize(),
-        winston.format.simple()
+      format: combine(
+        colorize(),
+        timestamp(),
+        logFormat
       )
     })
   ]
 });
 
-// Add file transports in development environment
-if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === undefined) {
-  console.log('Setting up file transports for development/local environment');
+// Add file transports only in development environment
+if (process.env.NODE_ENV === 'development') {
+  const logsDir = path.join(process.cwd(), 'logs');
   
-  const errorLogPath = path.join(logsDir, 'error.log');
-  const apiCallsLogPath = path.join(logsDir, 'api-calls.log');
-  
-  console.log('Error log path:', errorLogPath);
-  console.log('API calls log path:', apiCallsLogPath);
+  // Create logs directory if it doesn't exist
+  if (!fs.existsSync(logsDir)) {
+    fs.mkdirSync(logsDir, { recursive: true });
+  }
 
-  // Add error log transport
   logger.add(new winston.transports.File({
-    ...fileTransportOptions,
-    filename: errorLogPath,
+    filename: path.join(logsDir, 'error.log'),
     level: 'error'
   }));
-  
-  // Add API calls log transport
+
   logger.add(new winston.transports.File({
-    ...fileTransportOptions,
-    filename: apiCallsLogPath
+    filename: path.join(logsDir, 'api-calls.log'),
+    level: 'info'
   }));
-
-  // Verify transports were added
-  console.log('Current logger transports:', 
-    logger.transports.map(t => ({
-      type: t.constructor.name,
-      level: t.level,
-      filename: 'filename' in t ? (t as winston.transports.FileTransportInstance).filename : undefined
-    }))
-  );
-
-  // Test log entries
-  logger.info('Logger initialized in development mode');
-  logger.error('Test error log entry');
 }
 
-// Export the logger instance
-export { logger };
-
-// Helper functions
+// Wrapper functions for logging
 export const logApiCall = (type: 'incoming' | 'outgoing', data: any) => {
-  const logData = {
-    type,
-    timestamp: new Date().toISOString(),
-    ...data
-  };
-  
-  logger.info('API Call', logData);
+  logger.info(`API ${type.toUpperCase()}`, data);
 };
 
-export const logError = (error: any, context?: any) => {
-  const errorObj = error instanceof Error ? {
-    message: error.message,
-    stack: error.stack,
-    name: error.name
-  } : error;
+export const logError = (message: string, error: any) => {
+  logger.error(message, error);
+};
 
-  logger.error('Error', { 
-    error: errorObj,
-    context: context ? JSON.parse(JSON.stringify(context)) : undefined
-  });
-}; 
+export const logErrorEvent = (error: any, context?: any) => {
+  logger.error('Error occurred', { error, context });
+};
+
+export const logInfo = (message: string, data?: any) => {
+  logger.info(message, data);
+};
+
+export default logger; 
